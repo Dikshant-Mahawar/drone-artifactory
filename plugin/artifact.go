@@ -151,13 +151,21 @@ func parseJFrogDetailedSummary(output []byte, baseURL string) []fileArtifactEntr
 			continue
 		}
 		entries = append(entries, fileArtifactEntry{
-			Name:     filepath.Base(f.SourcePath),
-			URL:      base + "/" + f.TargetPath,
+			Name: filepath.Base(f.SourcePath),
+			URL:  resolveArtifactURL(base, f.TargetPath),
 			FilePath: f.TargetPath,
 			Digest:   digest,
 		})
 	}
 	return entries
+}
+
+func resolveArtifactURL(base, target string) string {
+	target = strings.TrimSpace(target)
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		return target
+	}
+	return base + "/" + strings.TrimLeft(target, "/")
 }
 
 // collectArtifactEntries resolves the source pattern to local files,
