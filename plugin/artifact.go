@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,14 +151,32 @@ func parseJFrogDetailedSummary(output []byte, baseURL string) []fileArtifactEntr
 			logrus.Warnf("artifact: JFrog summary entry has empty paths (sourcePath=%q targetPath=%q) — skipping", f.SourcePath, f.TargetPath)
 			continue
 		}
+		artifactURL, filePath := resolveArtifactURLAndPath(base, f.TargetPath)
 		entries = append(entries, fileArtifactEntry{
 			Name:     filepath.Base(f.SourcePath),
-			URL:      base + "/" + f.TargetPath,
-			FilePath: f.TargetPath,
+			URL:      artifactURL,
+			FilePath: filePath,
 			Digest:   digest,
 		})
 	}
 	return entries
+}
+
+func resolveArtifactURLAndPath(base, target string) (artifactURL, filePath string) {
+	target = strings.TrimSpace(target)
+	if strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://") {
+		filePath = strings.TrimPrefix(target, base+"/")
+		if filePath == target {
+			// Absolute URL not rooted at the connector base URL — fall back to
+			// the URL path portion as the file path.
+			if u, err := url.Parse(target); err == nil {
+				filePath = strings.TrimLeft(u.Path, "/")
+			}
+		}
+		return target, filePath
+	}
+	rel := strings.TrimLeft(target, "/")
+	return base + "/" + rel, rel
 }
 
 // collectArtifactEntries resolves the source pattern to local files,
